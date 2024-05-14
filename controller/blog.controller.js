@@ -6,6 +6,8 @@ const sequelize = require("../config/dbconn");
 const BlogTagModel = require("../model/blog-tag.model");
 const TagModel = require("../model/tag.model");
 const UserModel = require("../model/user.model");
+const LikeModel = require("../model/like.modal");
+const FollowModel = require("../model/follow.model");
 
 // get user_id from middleware
 exports.addBlog = async (req, res) => {
@@ -55,38 +57,34 @@ exports.addBlog = async (req, res) => {
 
 exports.fetchBlog = async (req, res) => {
   try {
-    const { search } = req.query;
-    let blogs;
+    const { search, tag } = req.query;
+    let whereCondition = { is_deleted: false };
 
     if (search) {
-      blogs = await BlogModel.findAll({
-        where: {
-          [Op.or]: [
-            { is_deleted: false },
-            { title: { [Op.like]: `%${search}%` } },
-          ],
-        },
-        include: [{ model: BlogTagModel, include: [{ model: TagModel }] }],
-      });
-    } else {
-      blogs = await BlogModel.findAll({
-        where: { is_deleted: false },
-        include: [
-          { model: UserModel },
-          {
-            model: BlogTagModel,
-            include: [
-              {
-                model: TagModel,
-              },
-            ],
-          },
-        ],
-      });
+      whereCondition.title = {
+        [Op.like]: `%${search}%`,
+      };
     }
-    res.status(200).send({ message: "blog fetched!", data: blogs });
+
+    if (tag) {
+      whereCondition["$blog_tags.tag_id$"] = tag;
+    }
+
+    const blogs = await BlogModel.findAll({
+      where: whereCondition,
+      include: [
+        { model: UserModel },
+        {
+          model: BlogTagModel,
+          include: [{ model: TagModel }],
+        },
+      ],
+    });
+
+    res.status(200).send({ message: "Blogs fetched!", data: blogs });
   } catch (err) {
-    res.status(500).send({ message: err.message });
+    console.error(err);
+    res.status(500).send({ message: "Internal server error" });
   }
 };
 
@@ -108,12 +106,28 @@ exports.fetchBlogById = async (req, res) => {
             },
           ],
         },
+        {
+          model: LikeModel,
+        },
       ],
     });
     if (!blog) {
       return res.status(404).send({ message: "blog not found" });
     }
-    res.status(200).send({ message: "blog fetched!", data: blog });
+    const likesCount = await LikeModel.count({ where: { blog_id: blogId } });
+
+    const followConnections = await FollowModel.findAll({
+      where: {
+        following_id: blog.user_id,
+      },
+    });
+
+    res.status(200).send({
+      message: "blog fetched!",
+      data: blog,
+      count: likesCount,
+      followers: followConnections,
+    });
   } catch (err) {
     res.status(500).send({ message: err.message });
   }

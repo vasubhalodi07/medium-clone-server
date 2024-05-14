@@ -26,7 +26,7 @@ exports.login = async (req, res) => {
         Click the following link to login your account:
       </p>
       <p>
-        <a href="http://localhost:4200?auth=${access_token}">http://localhost:4200?auth=${access_token}</a>
+        <a href="http://localhost:4200/auth/?auth=${access_token}">http://localhost:4200/auth/?auth=${access_token}</a>
         </p>`,
     });
 
@@ -65,7 +65,7 @@ exports.register = async (req, res) => {
         Click the following link to complete your registration:
       </p>
       <p>
-        <a href="http://localhost:4200?token=${access_token}">http://localhost:4200?token=${access_token}</a>
+        <a href="http://localhost:4200/auth/?token=${access_token}">http://localhost:4200/auth/?token=${access_token}</a>
         </p>`,
     });
 
@@ -102,9 +102,11 @@ exports.loginCheckToken = async (req, res) => {
 exports.checkToken = async (req, res) => {
   try {
     const { email } = req.user;
+    const username = email.split("@")[0];
 
     let createUser = await UserModel.create({
       email: email,
+      username: username,
     });
 
     const access_token = tokenCreation.generateAccessToken(createUser.id);
